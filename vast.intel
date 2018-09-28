@@ -1,0 +1,2 @@
+#fields	indicator	indicator_type	meta.source	meta.desc	meta.url
+1.2.3.4	Intel::ADDR	source	Example	item	https://github.com/tenzir/bro-vast
