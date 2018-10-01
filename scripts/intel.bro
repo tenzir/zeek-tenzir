@@ -5,10 +5,20 @@
 
 @load base/frameworks/broker
 @load base/frameworks/intel
+@load base/frameworks/notice
+@load base/frameworks/reporter
 
 module VAST;
 
 export {
+  redef enum Notice::Type += {
+    ## When a new intel item is added to the the file
+    ## :bro:id:`VAST::intel_filename`, VAST performs a historic query to look
+    ## for connections prior to the release of the new item. If found, Bro
+    ## generates this notice.
+    Historic_Intel,
+  };
+
   ## The filename containing intelligence data that results
   const intel_filename = "vast.intel" &redef;
 
@@ -17,10 +27,67 @@ export {
   const intel_insert = T &redef;
 }
 
-# Maps queries created from the Intell::match event
-global intel_queries: table[string] of string;
+## The context for a historic VAST lookup.
+type QueryContext: record{
+  ## The query expression.
+  expression: string;
 
-# Sent from VAST.
+  ## The time when Bro issued the query.
+  start: time;
+
+  ## If intel was of type ADDR, then this field contains the host.
+  host: addr &optional;
+};
+
+# Maps hosts occurring in historic intel to a list of timestamps when the intel
+# has occurred in the past.
+type HostMap: table[addr] of set[time];
+
+# Maps VAST query IDs to additional context.
+global intel_queries: table[string] of QueryContext;
+
+# Hosts who triggered intel prior to the publication of the intel item.
+global historic_intel: table[addr] of HostMap;
+
+# Takes a historic conn log and correlates it with the new intel host.
+function handle_conn_log_entry(intel_host: addr, entry: vector of any)
+  {
+  # Sanity checks that we're dealing with a conn log.
+  local xs = entry as vector of any;
+  if ( |xs| < 20 )
+    Reporter::fatal("not operating on a conn.log");
+  local orig_h = xs[2] as addr;
+  local resp_h = xs[4] as addr;
+  # Figure out the other side of the communication.
+  local other = 0.0.0.0;
+  if ( orig_h == intel_host )
+    other = resp_h;
+  else if ( resp_h == intel_host )
+    other = orig_h;
+  if ( other == 0.0.0.0 )
+    return;
+  # Record the timestamp of the historic connection.
+  local ts = xs[0] as time;
+  if ( intel_host !in historic_intel )
+    historic_intel[intel_host] = HostMap();
+  local hosts = historic_intel[intel_host];
+  if ( other !in hosts )
+    hosts[other] = set();
+  add hosts[other][ts];
+  # Generate a notice for every historic connection.
+  local since = current_time() - ts;
+  local message = fmt("historic intel seen from %s to %s %f secs ago",
+                      orig_h, resp_h, since);
+  NOTICE([$note=Historic_Intel,
+          $n=|hosts[other]|,
+          $msg=message,
+          $sub=cat(intel_host),
+          $src=orig_h,
+          $dst=resp_h,
+          $identifier=cat(intel_host, other)]);
+  }
+
+# Query response sent from VAST.
 event result(uuid: string, data: any)
   {
   # A valid result is a vector over data. A null value signifies that the query
@@ -28,24 +95,36 @@ event result(uuid: string, data: any)
   switch (data)
     {
     default:
-      print "query", uuid, "terminated";
+      local runtime = current_time() - intel_queries[uuid]$start ;
+      Reporter::info(fmt("query %s terminated in %f secs", uuid, runtime));
       delete intel_queries[uuid];
       break;
     case type vector of any as xs:
-      print xs; # TODO: do something more exciting than just printing.
+      # VAST sends a vector [x, xs] where 'x' is the event name and 'xs' the
+      # data in the form of a vector.
+      if ( |xs| != 2 )
+        Reporter::fatal("invalid VAST result");
+      local intel_host = intel_queries[uuid]$host;
+      if ( (xs[0] as string) == "bro::conn" )
+        handle_conn_log_entry(intel_host, xs[1]);
+      else
+        Reporter::warning(fmt("can only process conn logs, not %s", xs[0]));
       break;
     }
   }
 
-event new_item(desc: Input::EventDescription, ev: Input::Event, item: Intel::Item)
+event new_item(desc: Input::EventDescription, ev: Input::Event,
+               item: Intel::Item)
   {
   if ( item$indicator_type == Intel::ADDR )
     {
     local address = to_addr(item$indicator);
     local expression = fmt(":addr == %s", address);
     local uuid = lookup(expression);
-    print "new intel item with address: ", address;
-    intel_queries[uuid] = expression;
+    Reporter::info(fmt("new intel item with address: %s", address));
+    intel_queries[uuid] = [$expression=expression,
+                           $start=current_time(),
+                           $host=address];
     }
   if ( intel_insert )
     Intel::insert(item);
