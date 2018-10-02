@@ -37,6 +37,9 @@ type QueryContext: record{
 
   ## If intel was of type ADDR, then this field contains the host.
   host: addr &optional;
+
+  ## If intel was of type SUBNET, then this field contains the host.
+  prefix: subnet &optional;
 };
 
 # Maps hosts occurring in historic intel to a list of timestamps when the intel
@@ -116,15 +119,33 @@ event result(uuid: string, data: any)
 event new_item(desc: Input::EventDescription, ev: Input::Event,
                item: Intel::Item)
   {
+  local expression: string;
+  local uuid: string;
   if ( item$indicator_type == Intel::ADDR )
     {
     local address = to_addr(item$indicator);
-    local expression = fmt(":addr == %s", address);
-    local uuid = lookup(expression);
     Reporter::info(fmt("new intel item with address: %s", address));
+    expression = fmt(":addr == %s", address);
+    uuid = lookup(expression);
     intel_queries[uuid] = [$expression=expression,
                            $start=current_time(),
                            $host=address];
+    }
+  else if ( item$indicator_type == Intel::SUBNET )
+    {
+    local prefix = to_subnet(item$indicator);
+    Reporter::info(fmt("new intel item with subnet: %s", prefix));
+    expression = fmt(":addr in %s", prefix);
+    uuid = lookup(expression);
+    intel_queries[uuid] = [$expression=expression,
+                           $start=current_time(),
+                           $prefix=prefix];
+    }
+  else
+    {
+    Reporter::warning(fmt("unsupported indicator type: %s",
+                          item$indicator_type));
+
     }
   if ( intel_insert )
     Intel::insert(item);
