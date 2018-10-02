@@ -71,6 +71,8 @@ event Broker::peer_added(endpoint: Broker::EndpointInfo, msg: string)
   if ( ! endpoint?$network )
 		return;
   local net = endpoint$network;
+	# FIXME: this conditional breaks if bridge_host is a hostname because
+	# net$address is always a (resolved) address.
 	if ( net$address == bridge_host && net$bound_port == bridge_port )
 		event VAST::bridge_up();
   }
@@ -80,6 +82,7 @@ event Broker::peer_lost(endpoint: Broker::EndpointInfo, msg: string)
   if ( ! endpoint?$network )
 		return;
   local net = endpoint$network;
+  # FIXME: see note above.
 	if ( net$address == bridge_host && net$bound_port == bridge_port )
 		event VAST::bridge_down();
   }
