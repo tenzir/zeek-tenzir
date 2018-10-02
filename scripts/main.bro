@@ -11,18 +11,27 @@ export {
 
   ## The port where ``bro-to-vast`` listens.
   const bridge_port = 43000/tcp &redef;
+
+	## Flag that indicates whether we're connected to the VAST bridge.
+	global connected_to_bridge = F;
+
+	## Raised when the Broker connection to the bridge has been established.
+  global bridge_up: event();
+
+	## Raised when the Broker connection to the bridge has been lost.
+  global bridge_down: event();
 }
 
-## The Broker topic for the control channel.
+# The Broker topic for the control channel.
 const control_topic = "/vast/control";
 
-## The Broker topic for the data channel.
+# The Broker topic for the data channel.
 const data_topic = "/vast/data";
 
-## The event that this script sends to VAST to create a new query.
+# The event that this script sends to VAST to create a new query.
 global query: event(uuid: string, expression: string);
 
-## The event that VAST sends back in response to a query.
+# The event that VAST sends back in response to a query.
 global result: event(uuid: string, data: any);
 
 ## Generates a random 16-byte UUID.
@@ -56,6 +65,34 @@ function lookup(expression: string): string
   Broker::publish(control_topic, e);
   return query_id;
   }
+
+event Broker::peer_added(endpoint: Broker::EndpointInfo, msg: string)
+  {
+  if ( ! endpoint?$network )
+  	return;
+  local net = endpoint$network;
+ 	if ( net$address == bridge_host && net$bound_port == bridge_port )
+ 		event VAST::bridge_up();
+  }
+
+event Broker::peer_lost(endpoint: Broker::EndpointInfo, msg: string)
+  {
+  if ( ! endpoint?$network )
+  	return;
+  local net = endpoint$network;
+ 	if ( net$address == bridge_host && net$bound_port == bridge_port )
+ 		event VAST::bridge_down();
+  }
+
+event bridge_up()
+	{
+	connected_to_bridge = T;
+	}
+
+event bridge_down()
+	{
+	connected_to_bridge = F;
+	}
 
 event bro_init()
   {

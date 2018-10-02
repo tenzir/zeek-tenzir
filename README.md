@@ -29,6 +29,15 @@ To enable historic intelligence lookups, just load the following script:
 @load bro-vast/intel.bro
 ```
 
+To test your setup locally, you can load the [example intel file](vast.intel)
+as follows:
+
+```shell
+bro 'Intel::read_files += {"vast.intel"}' scripts/intel.bro
+```
+
+The intel framework
+
 ## Configuration
 
 See the `export` section of the scripts for a complete description of tuning
@@ -36,15 +45,10 @@ knobs.
 
 ### intel.bro
 
-This script defines the intelligence framework integration. The script monitors
-a file `VAST::intel_filename` (which defaults to `vast.intel`) with
-intelligence data in the form required by the [intelligence
-framework][bro-intel-framework]. If you want to make available new entries to
-this file to the intelligence framework, set `VAST::insert_intel` to `T`. It
-defaults to `F` because we assume that the intel for VAST has already been made
-available to the framework separately.
-
-See the file [vast.intel](vast.intel) for an example intelligence file.
+This script defines the [intelligence framework][bro-intel-framework]
+integration. Whenever new intelligence is added, the script performs a historic
+intel lookup for the item. If there's currently no connection to VAST, then the
+script queues the item until the connection becomes available again.
 
 ### main.bro
 

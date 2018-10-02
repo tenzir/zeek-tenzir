@@ -4,6 +4,7 @@
 @load ./main
 
 @load base/frameworks/broker
+@load base/frameworks/cluster
 @load base/frameworks/intel
 @load base/frameworks/notice
 @load base/frameworks/reporter
@@ -18,13 +19,6 @@ export {
     ## generates this notice.
     Historic_Intel,
   };
-
-  ## The filename containing intelligence data that results
-  const intel_filename = "vast.intel" &redef;
-
-  ## Flag that indicates whether we should insert intel items into the
-  ## framework for further matching.
-  const intel_insert = F &redef;
 }
 
 ## The context for a historic VAST lookup.
@@ -42,6 +36,9 @@ type QueryContext: record{
   prefix: subnet &optional;
 };
 
+# Unprocessed intel items 
+global unprocessed_intel_items: set[Intel::Item];
+
 # Maps hosts occurring in historic intel to a list of timestamps when the intel
 # has occurred in the past.
 type HostMap: table[addr] of set[time];
@@ -51,6 +48,72 @@ global intel_queries: table[string] of QueryContext;
 
 # Hosts who triggered intel prior to the publication of the intel item.
 global historic_intel: table[addr] of HostMap;
+
+# Exporting this function prior to its definition works around a problem with
+# the Intel framework API: we need to be able to call this function down below
+# when we're opening the Intel module namespace temporarily.
+export {
+  global queue_or_lookup_intel: function(item: Intel::Item);
+}
+
+# Issues a historical query for an intel item.
+function historic_intel_lookup(item: Intel::Item)
+  {
+  local expression: string;
+  local uuid: string;
+  if ( item$indicator_type == Intel::ADDR )
+    {
+    local address = to_addr(item$indicator);
+    Reporter::info(fmt("new intel item with address: %s", address));
+    expression = fmt(":addr == %s", address);
+    uuid = lookup(expression);
+    intel_queries[uuid] = [$expression=expression,
+                           $start=current_time(),
+                           $host=address];
+    }
+  else if ( item$indicator_type == Intel::SUBNET )
+    {
+    local prefix = to_subnet(item$indicator);
+    Reporter::info(fmt("new intel item with subnet: %s", prefix));
+    expression = fmt(":addr in %s", prefix);
+    uuid = lookup(expression);
+    intel_queries[uuid] = [$expression=expression,
+                           $start=current_time(),
+                           $prefix=prefix];
+    }
+  else
+    {
+    Reporter::warning(fmt("unsupported indicator type: %s",
+                          item$indicator_type));
+    }
+  }
+
+# Helper function that either dispatches the lookup directly or queues the item
+# until VAST is available.
+function queue_or_lookup_intel(item: Intel::Item)
+  {
+  if ( connected_to_bridge )
+    historic_intel_lookup(item);
+  else
+    add unprocessed_intel_items[item];
+  }
+
+# Because the intel framework does not have a public API for hooking the
+# addition of new intel items, we have to futz with some framework internals to
+# be able to interpose at the right place.
+module Intel;
+
+@if ( ! Cluster::is_enabled() 
+      || Cluster::local_node_type() == Cluster::MANAGER )
+
+event new_item(item: Item)
+  {
+  VAST::queue_or_lookup_intel(item);
+  }
+
+@endif
+
+module VAST;
 
 # Takes a historic conn log and correlates it with the new intel host.
 function handle_conn_log_entry(intel_host: addr, entry: vector of any)
@@ -116,49 +179,9 @@ event result(uuid: string, data: any)
     }
   }
 
-event new_item(desc: Input::EventDescription, ev: Input::Event,
-               item: Intel::Item)
+# Process all queries that have accummulated.
+event bridge_up()
   {
-  local expression: string;
-  local uuid: string;
-  if ( item$indicator_type == Intel::ADDR )
-    {
-    local address = to_addr(item$indicator);
-    Reporter::info(fmt("new intel item with address: %s", address));
-    expression = fmt(":addr == %s", address);
-    uuid = lookup(expression);
-    intel_queries[uuid] = [$expression=expression,
-                           $start=current_time(),
-                           $host=address];
-    }
-  else if ( item$indicator_type == Intel::SUBNET )
-    {
-    local prefix = to_subnet(item$indicator);
-    Reporter::info(fmt("new intel item with subnet: %s", prefix));
-    expression = fmt(":addr in %s", prefix);
-    uuid = lookup(expression);
-    intel_queries[uuid] = [$expression=expression,
-                           $start=current_time(),
-                           $prefix=prefix];
-    }
-  else
-    {
-    Reporter::warning(fmt("unsupported indicator type: %s",
-                          item$indicator_type));
-    }
-  if ( intel_insert )
-    Intel::insert(item);
-  }
-
-event Broker::peer_added(endpoint: Broker::EndpointInfo, msg: string)
-  {
-  # We do not add the intelligence file in bro_init() because the peering is
-  # not yet established at this point. Consequently, all existing intel items
-  # would not result in a VAST lookup.
-  Input::add_event([$source=intel_filename,
-      $reader=Input::READER_ASCII,
-      $mode=Input::STREAM,
-      $name=cat("intel-", intel_filename),
-      $fields=Intel::Item,
-      $ev=new_item]);
+  for ( item in unprocessed_intel_items )
+    historic_intel_lookup(item);
   }
