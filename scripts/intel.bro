@@ -145,7 +145,6 @@ event new_item(desc: Input::EventDescription, ev: Input::Event,
     {
     Reporter::warning(fmt("unsupported indicator type: %s",
                           item$indicator_type));
-
     }
   if ( intel_insert )
     Intel::insert(item);
