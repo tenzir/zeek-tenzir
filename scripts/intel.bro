@@ -65,7 +65,7 @@ function historic_intel_lookup(item: Intel::Item)
     {
     local address = to_addr(item$indicator);
     Reporter::info(fmt("new intel item with address: %s", address));
-    expression = fmt(":addr == %s", address);
+    expression = fmt("&type == \"bro::conn\" && :addr == %s", address);
     uuid = lookup(expression);
     intel_queries[uuid] = [$expression=expression,
                            $start=current_time(),
@@ -75,7 +75,7 @@ function historic_intel_lookup(item: Intel::Item)
     {
     local prefix = to_subnet(item$indicator);
     Reporter::info(fmt("new intel item with subnet: %s", prefix));
-    expression = fmt(":addr in %s", prefix);
+    expression = fmt("&type == \"bro::conn\" && :addr in %s", prefix);
     uuid = lookup(expression);
     intel_queries[uuid] = [$expression=expression,
                            $start=current_time(),
