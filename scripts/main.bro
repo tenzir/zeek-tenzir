@@ -69,19 +69,19 @@ function lookup(expression: string): string
 event Broker::peer_added(endpoint: Broker::EndpointInfo, msg: string)
   {
   if ( ! endpoint?$network )
-  	return;
+		return;
   local net = endpoint$network;
- 	if ( net$address == bridge_host && net$bound_port == bridge_port )
- 		event VAST::bridge_up();
+	if ( net$address == bridge_host && net$bound_port == bridge_port )
+		event VAST::bridge_up();
   }
 
 event Broker::peer_lost(endpoint: Broker::EndpointInfo, msg: string)
   {
   if ( ! endpoint?$network )
-  	return;
+		return;
   local net = endpoint$network;
- 	if ( net$address == bridge_host && net$bound_port == bridge_port )
- 		event VAST::bridge_down();
+	if ( net$address == bridge_host && net$bound_port == bridge_port )
+		event VAST::bridge_down();
   }
 
 event bridge_up()
