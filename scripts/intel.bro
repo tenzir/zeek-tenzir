@@ -24,7 +24,7 @@ export {
 
   ## Flag that indicates whether we should insert intel items into the
   ## framework for further matching.
-  const intel_insert = T &redef;
+  const intel_insert = F &redef;
 }
 
 ## The context for a historic VAST lookup.
