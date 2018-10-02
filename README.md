@@ -45,7 +45,7 @@ knobs.
 
 ### intel.bro
 
-This script defines the [intelligence framework][bro-intel-framework]
+This script defines the [intelligence framework][intel-framework]
 integration. Whenever new intelligence is added, the script performs a historic
 intel lookup for the item. If there's currently no connection to VAST, then the
 script queues the item until the connection becomes available again.
