@@ -3,21 +3,39 @@
 
 @load ./main
 
+@load base/init-bare
 @load base/frameworks/broker
 @load base/frameworks/cluster
 @load base/frameworks/intel
-@load base/frameworks/notice
+@load base/frameworks/logging
 @load base/frameworks/reporter
 
 module VAST;
 
 export {
-  redef enum Notice::Type += {
-    ## When a new intel item is added to the the file
-    ## :bro:id:`VAST::intel_filename`, VAST performs a historic query to look
-    ## for connections prior to the release of the new item. If found, Bro
-    ## generates this notice.
-    Historic_Intel,
+  # Append the value LOG to the Log::ID enumerable.
+  redef enum Log::ID += { LOG };
+
+  ## The record type which contains the column fields of the log.
+  type Info: record {
+    ## The timestamp of the historic connection.
+    ts: time &log;
+
+    ## The UID of the historic connection.
+    uid: string &log;
+
+    ## The connection 5-tuple of the historic connection.
+    id: conn_id &log;
+
+    ## The indicator that matched the historic connection.
+    indicator: string &log;
+
+    ## The type of :bro:id:`indicator`.
+    indicator_type: Intel::Type &log;
+
+    ## The difference in time since Bro got the indicator and the historic
+    ## connection.
+    age: interval &log;
   };
 }
 
@@ -29,25 +47,15 @@ type QueryContext: record{
   ## The time when Bro issued the query.
   start: time;
 
-  ## If intel was of type ADDR, then this field contains the host.
-  host: addr &optional;
-
-  ## If intel was of type SUBNET, then this field contains the host.
-  prefix: subnet &optional;
+  ## The intel item for this query.
+  item: Intel::Item;
 };
 
-# Unprocessed intel items 
+# Unprocessed intel items
 global unprocessed_intel_items: set[Intel::Item];
-
-# Maps hosts occurring in historic intel to a list of timestamps when the intel
-# has occurred in the past.
-type HostMap: table[addr] of set[time];
 
 # Maps VAST query IDs to additional context.
 global intel_queries: table[string] of QueryContext;
-
-# Hosts who triggered intel prior to the publication of the intel item.
-global historic_intel: table[addr] of HostMap;
 
 # Exporting this function prior to its definition works around a problem with
 # the Intel framework API: we need to be able to call this function down below
@@ -56,36 +64,31 @@ export {
   global queue_or_lookup_intel: function(item: Intel::Item);
 }
 
-# Issues a historical query for an intel item.
-function historic_intel_lookup(item: Intel::Item)
+# Creates a query expression for a given intel item. If the item cannot be
+# translated into a VAST expression, the function returns the empty string.
+function make_expression(item: Intel::Item): string
   {
-  local expression: string;
-  local uuid: string;
   if ( item$indicator_type == Intel::ADDR )
     {
     local address = to_addr(item$indicator);
-    Reporter::info(fmt("new intel item with address: %s", address));
-    expression = fmt("&type == \"bro::conn\" && :addr == %s", address);
-    uuid = lookup(expression);
-    intel_queries[uuid] = [$expression=expression,
-                           $start=current_time(),
-                           $host=address];
+    return fmt("&type == \"bro::conn\" && :addr == %s", address);
     }
   else if ( item$indicator_type == Intel::SUBNET )
     {
     local prefix = to_subnet(item$indicator);
-    Reporter::info(fmt("new intel item with subnet: %s", prefix));
-    expression = fmt("&type == \"bro::conn\" && :addr in %s", prefix);
-    uuid = lookup(expression);
-    intel_queries[uuid] = [$expression=expression,
-                           $start=current_time(),
-                           $prefix=prefix];
+    return fmt("new intel item with subnet: %s", prefix);
     }
-  else
-    {
-    Reporter::warning(fmt("unsupported indicator type: %s",
-                          item$indicator_type));
-    }
+  return "";
+  }
+
+# Issues a historical query for an intel item.
+function historic_intel_lookup(item: Intel::Item)
+  {
+  local expr = make_expression(item);
+  if ( |expr| == 0 )
+    return;  # Unsupported intel type.
+  local uuid = lookup(expr);
+  intel_queries[uuid] = [$expression=expr, $start=current_time(), $item=item];
   }
 
 # Helper function that either dispatches the lookup directly or queues the item
@@ -103,7 +106,7 @@ function queue_or_lookup_intel(item: Intel::Item)
 # be able to interpose at the right place.
 module Intel;
 
-@if ( ! Cluster::is_enabled() 
+@if ( ! Cluster::is_enabled()
       || Cluster::local_node_type() == Cluster::MANAGER )
 
 event new_item(item: Item)
@@ -116,63 +119,48 @@ event new_item(item: Item)
 module VAST;
 
 # Takes a historic conn log and correlates it with the new intel host.
-function handle_conn_log_entry(intel_host: addr, entry: vector of any)
+function handle_conn_log_entry(ctx: QueryContext, entry: vector of any)
   {
   # Sanity checks that we're dealing with a conn log.
   local xs = entry as vector of any;
   if ( |xs| < 20 )
     Reporter::fatal("not operating on a conn.log");
-  local orig_h = xs[2] as addr;
-  local resp_h = xs[4] as addr;
-  # Figure out the other side of the communication.
-  local other = 0.0.0.0;
-  if ( orig_h == intel_host )
-    other = resp_h;
-  else if ( resp_h == intel_host )
-    other = orig_h;
-  if ( other == 0.0.0.0 )
-    return;
-  # Record the timestamp of the historic connection.
   local ts = xs[0] as time;
-  if ( intel_host !in historic_intel )
-    historic_intel[intel_host] = HostMap();
-  local hosts = historic_intel[intel_host];
-  if ( other !in hosts )
-    hosts[other] = set();
-  add hosts[other][ts];
-  # Generate a notice for every historic connection.
-  local since = current_time() - ts;
-  local message = fmt("historic intel seen from %s to %s %f secs ago",
-                      orig_h, resp_h, since);
-  NOTICE([$note=Historic_Intel,
-          $n=|hosts[other]|,
-          $msg=message,
-          $sub=cat(intel_host),
-          $src=orig_h,
-          $dst=resp_h,
-          $identifier=cat(intel_host, other)]);
+  local uid = xs[1] as string;
+  local orig_h = xs[2] as addr;
+  local orig_p = xs[3] as port;
+  local resp_h = xs[4] as addr;
+  local resp_p = xs[5] as port;
+  local id: conn_id = [$orig_h=orig_h,
+                       $orig_p=orig_p,
+                       $resp_h=resp_h,
+                       $resp_p=resp_p];
+  Log::write(LOG, [$ts=ts,
+                   $uid=uid,
+                   $id=id,
+                   $indicator=ctx$item$indicator,
+                   $indicator_type=ctx$item$indicator_type,
+                   $age=(ctx$start - ts)]);
   }
 
 # Query response sent from VAST.
 event result(uuid: string, data: any)
   {
-  # A valid result is a vector over data. A null value signifies that the query
-  # has terminated.
-  switch (data)
+  switch ( data )
     {
     default:
-      local runtime = current_time() - intel_queries[uuid]$start ;
-      Reporter::info(fmt("query %s terminated in %f secs", uuid, runtime));
+      # Once the query has terminated, VAST sends null value.
+      local runtime = current_time() - intel_queries[uuid]$start;
+      Reporter::info(fmt("VAST query %s terminated in %f secs", uuid, runtime));
       delete intel_queries[uuid];
       break;
     case type vector of any as xs:
       # VAST sends a vector [x, xs] where 'x' is the event name and 'xs' the
       # data in the form of a vector.
       if ( |xs| != 2 )
-        Reporter::fatal("invalid VAST result");
-      local intel_host = intel_queries[uuid]$host;
+        Reporter::fatal("invalid VAST result event");
       if ( (xs[0] as string) == "bro::conn" )
-        handle_conn_log_entry(intel_host, xs[1]);
+        handle_conn_log_entry(intel_queries[uuid], xs[1]);
       else
         Reporter::warning(fmt("can only process conn logs, not %s", xs[0]));
       break;
@@ -184,4 +172,9 @@ event bridge_up()
   {
   for ( item in unprocessed_intel_items )
     historic_intel_lookup(item);
+  }
+
+event bro_init()
+  {
+  Log::create_stream(LOG, [$columns=Info, $path="historic-intel"]);
   }

@@ -29,14 +29,15 @@ To enable historic intelligence lookups, just load the following script:
 @load bro-vast/intel.bro
 ```
 
+Bro then generates a new file `historic-intel.log` with the results of historic
+intelligence lookups.
+
 To test your setup locally, you can load the [example intel file](vast.intel)
 as follows:
 
 ```shell
 bro 'Intel::read_files += {"vast.intel"}' scripts/intel.bro
 ```
-
-The intel framework
 
 ## Configuration
 
@@ -45,10 +46,13 @@ knobs.
 
 ### intel.bro
 
-This script defines the [intelligence framework][intel-framework]
-integration. Whenever new intelligence is added, the script performs a historic
-intel lookup for the item. If there's currently no connection to VAST, then the
-script queues the item until the connection becomes available again.
+This script integrates VAST with the [intelligence framework][intel-framework]:
+Whenever Bro processes a new intelligence item, the script performs a historic
+lookup for the new item in VAST. If there exists relevant data, VAST sends the
+result back, which the scripts then writes into the file `historic-intel.log`.
+
+If there's currently no connection to VAST, then the script queues the item
+until the connection becomes available again.
 
 ### main.bro
 
