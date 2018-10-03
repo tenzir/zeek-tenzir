@@ -20,7 +20,7 @@ bro-pkg install bro-vast
 
 ## Usage
 
-First, make sure that `vast` and [`bro-to-vast`][bro-to-vast] are running,
+First, make sure that VAST and [`bro-to-vast`][bro-to-vast] are running,
 otherwise the scripts will not be able to communicate with VAST.
 
 To enable historic intelligence lookups, just load the following script:
