@@ -1,7 +1,9 @@
 # Bro & VAST
 
 This package enables Bro to communicate with [VAST][vast], a scalable plaform
-for network forensics.
+for network forensics. Combining VAST and Bro allows threat hunters to automate
+routine tasks, such as correlating new intelligence feed items with data from
+the past.
 
 ## Features
 
