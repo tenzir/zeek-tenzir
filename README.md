@@ -32,11 +32,11 @@ To enable historic intelligence lookups, just load the following script:
 Bro then generates a new file `historic-intel.log` with the results of historic
 intelligence lookups.
 
-To test your setup locally, you can load the [example intel file](vast.intel)
+To test your setup locally, you can load the [example intel file](example.intel)
 as follows:
 
 ```shell
-bro 'Intel::read_files += {"vast.intel"}' scripts/intel.bro
+bro 'Intel::read_files += {"example.intel"}' scripts/intel.bro
 ```
 
 ## Configuration
