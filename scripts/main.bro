@@ -12,13 +12,13 @@ export {
   ## The port where ``bro-to-vast`` listens.
   const bridge_port = 43000/tcp &redef;
 
-	## Flag that indicates whether we're connected to the VAST bridge.
-	global connected_to_bridge = F;
+  ## Flag that indicates whether we're connected to the VAST bridge.
+  global connected_to_bridge = F;
 
-	## Raised when the Broker connection to the bridge has been established.
+  ## Raised when the Broker connection to the bridge has been established.
   global bridge_up: event();
 
-	## Raised when the Broker connection to the bridge has been lost.
+  ## Raised when the Broker connection to the bridge has been lost.
   global bridge_down: event();
 }
 
@@ -42,13 +42,13 @@ function random_uuid() : string
   # We use the 11 bytes of unique_id() with a fixed 5-byte prefix to end up
   # with 16 bytes for the UUID.
   local uid = unique_id("VAST-");
-	# unique_id() doesn't always return 11 bytes! In this case the result needs
-	# to padded/trimmed.
-	if ( |uid| < 16 )
-		while ( |uid| < 16 )
-			uid = cat(uid, "-");
-	else if ( |uid| > 16 )
-		uid = sub_bytes(uid, 0, 16);
+  # unique_id() doesn't always return 11 bytes! In this case the result needs
+  # to padded/trimmed.
+  if ( |uid| < 16 )
+    while ( |uid| < 16 )
+      uid = cat(uid, "-");
+  else if ( |uid| > 16 )
+    uid = sub_bytes(uid, 0, 16);
   return uuid_to_string(uid);
   }
 
@@ -69,33 +69,33 @@ function lookup(expression: string): string
 event Broker::peer_added(endpoint: Broker::EndpointInfo, msg: string)
   {
   if ( ! endpoint?$network )
-		return;
+    return;
   local net = endpoint$network;
-	# FIXME: this conditional breaks if bridge_host is a hostname because
-	# net$address is always a (resolved) address.
-	if ( net$address == bridge_host && net$bound_port == bridge_port )
-		event VAST::bridge_up();
+  # FIXME: this conditional breaks if bridge_host is a hostname because
+  # net$address is always a (resolved) address.
+  if ( net$address == bridge_host && net$bound_port == bridge_port )
+    event VAST::bridge_up();
   }
 
 event Broker::peer_lost(endpoint: Broker::EndpointInfo, msg: string)
   {
   if ( ! endpoint?$network )
-		return;
+    return;
   local net = endpoint$network;
   # FIXME: see note above.
-	if ( net$address == bridge_host && net$bound_port == bridge_port )
-		event VAST::bridge_down();
+  if ( net$address == bridge_host && net$bound_port == bridge_port )
+    event VAST::bridge_down();
   }
 
 event bridge_up()
-	{
-	connected_to_bridge = T;
-	}
+  {
+  connected_to_bridge = T;
+  }
 
 event bridge_down()
-	{
-	connected_to_bridge = F;
-	}
+  {
+  connected_to_bridge = F;
+  }
 
 event bro_init()
   {
