@@ -1,14 +1,18 @@
 # Bro & VAST
 
-This package enables Bro to communicate with [VAST][vast], a scalable plaform
-for network forensics.
+This package enables Bro to leverage the [`bro-to-vast`][bro-vast] tool for
+querying [VAST][vast] from Bro scripts.
+
+VAST is a platform for network forensics at scale. Integrating it into Bro
+allows threat hunters to automate routine tasks, for example using historic
+data to give context to new intelligence feed entries.
 
 ## Features
 
 - Historic intelligence lookups: when new intelligence becomes available,
   go back in time and look for connections that involved the new intelligence.
 
-- Query arbitrary data in VAST.
+- Run arbitrary queries in VAST and process results natively in Bro scripts.
 
 ## Installation
 
