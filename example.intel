@@ -1,2 +1,2 @@
 #fields	indicator	indicator_type	meta.source	meta.desc	meta.url
-fe80::5074:1b53:7e7:ad4d	Intel::ADDR	source	Example	item	https://github.com/tenzir/bro-vast
+fe80::5074:1b53:7e7:ad4d	Intel::ADDR	example source	example	description	https://github.com/tenzir/bro-vast
