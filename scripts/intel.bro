@@ -2,6 +2,7 @@
 ##! intel items.
 
 @load ./main
+@load ./utils
 
 @load base/init-bare
 @load base/frameworks/broker
@@ -36,6 +37,10 @@ export {
     ## The difference in time since Bro got the indicator and the historic
     ## connection.
     age: interval &log;
+
+    ## A human-readable reprsentation of :bro:id:`age` where the time is
+    ## deconstructed into its components.
+    age_str: string &log;
   };
 }
 
@@ -140,7 +145,8 @@ function handle_conn_log_entry(ctx: QueryContext, entry: vector of any)
                    $id=id,
                    $indicator=ctx$item$indicator,
                    $indicator_type=ctx$item$indicator_type,
-                   $age=(ctx$start - ts)]);
+                   $age=(ctx$start - ts),
+                   $age_str=deconstruct(ctx$start - ts)]);
   }
 
 # Query response sent from VAST.
