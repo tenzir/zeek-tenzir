@@ -1,3 +1,21 @@
+## Generates a random 16-byte UUID.
+##
+## Returns: A random UUID, e.g., ``6ef0cb1a-f0b2-44d7-9303-6000091e35e3``.
+function random_uuid() : string
+  {
+  # We use the 11 bytes of unique_id() with a fixed 5-byte prefix to end up
+  # with 16 bytes for the UUID.
+  local uid = unique_id("VAST-");
+  # unique_id() doesn't always return 11 bytes! In this case the result needs
+  # to padded/trimmed.
+  if ( |uid| < 16 )
+    while ( |uid| < 16 )
+      uid = cat(uid, "-");
+  else if ( |uid| > 16 )
+    uid = sub_bytes(uid, 0, 16);
+  return uuid_to_string(uid);
+  }
+
 function secs(x: double): count
 	{
 	return double_to_count(x);
