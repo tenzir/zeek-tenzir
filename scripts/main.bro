@@ -99,7 +99,6 @@ event bridge_down()
 
 event bro_init()
   {
-  Broker::subscribe(control_topic);
   Broker::subscribe(data_topic);
   Broker::peer(bridge_host, bridge_port);
   }
