@@ -1,0 +1,6 @@
+[package]
+description = A package that enables Zeek to communicate with VAST
+tags = vast, intel
+script_dir = scripts
+depends =
+  zeek >= 2.6-beta2-14
