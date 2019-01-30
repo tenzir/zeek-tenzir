@@ -71,4 +71,4 @@ This Zeek package comes with a [BSD license](LICENSE).
 [vast]: https://github.com/vast-io/vast
 [intel-framework]: https://docs.zeek.org/en/stable/frameworks/intel.html
 [zeek-to-vast]: https://github.com/vast-io/vast/tree/master/tools/zeek-to-vast
-[zeek-pkg-mgr]: https://docs.zeek.org/projects-package-manager
+[zeek-pkg-mgr]: https://docs.zeek.org/projects/package-manager
