@@ -31,14 +31,14 @@ export {
     ## The indicator that matched the historic connection.
     indicator: string &log;
 
-    ## The type of :bro:id:`indicator`.
+    ## The type of :zeek:id:`indicator`.
     indicator_type: Intel::Type &log;
 
-    ## The difference in time since Bro got the indicator and the historic
+    ## The difference in time since Zeek got the indicator and the historic
     ## connection.
     age: interval &log;
 
-    ## A human-readable reprsentation of :bro:id:`age` where the time is
+    ## A human-readable reprsentation of :zeek:id:`age` where the time is
     ## deconstructed into its components.
     age_str: string &log;
   };
@@ -49,7 +49,7 @@ type QueryContext: record{
   ## The query expression.
   expression: string;
 
-  ## The time when Bro issued the query.
+  ## The time when Zeek issued the query.
   start: time;
 
   ## The intel item for this query.
@@ -76,7 +76,7 @@ function make_expression(item: Intel::Item): string
   if ( item$indicator_type == Intel::ADDR )
     {
     local address = to_addr(item$indicator);
-    return fmt("&type == \"bro::conn\" && :addr == %s", address);
+    return fmt("&type == \"zeek::conn\" && :addr == %s", address);
     }
   else if ( item$indicator_type == Intel::SUBNET )
     {
@@ -165,7 +165,7 @@ event result(uuid: string, data: any)
       # data in the form of a vector.
       if ( |xs| != 2 )
         Reporter::fatal("invalid VAST result event");
-      if ( (xs[0] as string) == "bro::conn" )
+      if ( (xs[0] as string) == "zeek::conn" )
         handle_conn_log_entry(intel_queries[uuid], xs[1]);
       else
         Reporter::warning(fmt("can only process conn logs, not %s", xs[0]));
@@ -180,7 +180,7 @@ event bridge_up()
     historic_intel_lookup(item);
   }
 
-event bro_init()
+event zeek_init()
   {
   Log::create_stream(LOG, [$columns=Info, $path="historic-intel"]);
   }

@@ -8,10 +8,10 @@
 module VAST;
 
 export {
-  ## The hostname or address where ``bro-to-vast`` runs.
+  ## The hostname or address where ``zeek-to-vast`` runs.
   const bridge_host = "127.0.0.1" &redef;
 
-  ## The port where ``bro-to-vast`` listens.
+  ## The port where ``zeek-to-vast`` listens.
   const bridge_port = 43000/tcp &redef;
 
   ## Flag that indicates whether we're connected to the VAST bridge.
@@ -81,7 +81,7 @@ event bridge_down()
   connected_to_bridge = F;
   }
 
-event bro_init()
+event zeek_init()
   {
   Broker::subscribe(data_topic);
   Broker::peer(bridge_host, bridge_port);

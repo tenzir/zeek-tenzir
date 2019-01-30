@@ -56,30 +56,40 @@ function deconstruct(x: interval): string
 		result += cat(num_years) + "y";
 		d -= num_years * 365 * 24 * 60 * 60;
 		}
+	if (d < 0)
+		return result;
 	local num_months = months(d);
 	if ( num_months > 0 )
 		{
 		result += cat(num_months) + "M";
 		d -= num_months * 30 * 24 * 60 * 60;
 		}
+	if (d < 0)
+		return result;
 	local num_days = days(d);
 	if ( num_days > 0 )
 		{
 		result += cat(num_days) + "d";
 		d -= num_days * 24 * 60 * 60;
 		}
+	if (d < 0)
+		return result;
 	local num_hours = hours(d);
 	if ( num_hours > 0 )
 		{
 		result += cat(num_hours) + "h";
 		d -= num_hours * 60 * 60;
 		}
+	if (d < 0)
+		return result;
 	local num_mins = mins(d);
 	if ( num_mins > 0 )
 		{
 		result += cat(num_mins) + "m";
 		d -= num_mins * 60;
 		}
+	if (d < 0)
+		return result;
 	local num_secs = secs(d);
 	if ( num_secs > 0 )
 		{
