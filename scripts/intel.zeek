@@ -76,7 +76,7 @@ function make_expression(item: Intel::Item): string
   if ( item$indicator_type == Intel::ADDR )
     {
     local address = to_addr(item$indicator);
-    return fmt("&type == \"zeek::conn\" && :addr == %s", address);
+    return fmt("#type == \"zeek::conn\" && :addr == %s", address);
     }
   else if ( item$indicator_type == Intel::SUBNET )
     {
