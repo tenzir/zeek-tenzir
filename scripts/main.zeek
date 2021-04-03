@@ -9,10 +9,10 @@ module VAST;
 
 export {
   ## The hostname or address where ``zeek-to-vast`` runs.
-  const bridge_host = "127.0.0.1" &redef;
+  option bridge_host = "127.0.0.1";
 
   ## The port where ``zeek-to-vast`` listens.
-  const bridge_port = 43000/tcp &redef;
+  option bridge_port = 43000/tcp;
 
   ## Flag that indicates whether we're connected to the VAST bridge.
   global connected_to_bridge = F;
@@ -25,10 +25,10 @@ export {
 }
 
 # The Broker topic for the control channel.
-const control_topic = "/vast/control";
+option control_topic = "/vast/control";
 
 # The Broker topic for the data channel.
-const data_topic = "/vast/data";
+option data_topic = "/vast/data";
 
 # The event that this script sends to VAST to create a new query.
 global query: event(uuid: string, expression: string);
