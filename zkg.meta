@@ -1,6 +1,19 @@
 [package]
-description = A package that enables Zeek to communicate with VAST
-tags = vast, intel
+aliases = tenzir
+tags = tenzir, pipelines, logs, log shipping, postprocessor, rotation
 script_dir = scripts
+summary = The official Tenzir integration for Zeek
+description = This package is the official Zeek integration for Tenzir.
 depends =
-  zeek >= 2.6-beta2-14
+	zeek >=4.0.0
+
+[template]
+source = https://github.com/zeek/package-template
+version = v2.0.0
+zkg_version = 2.13.0
+features = license
+
+[template_vars]
+name = Tenzir
+author = Tenzir Engineering <engineering@tenzir.com>
+license = bsd-3
