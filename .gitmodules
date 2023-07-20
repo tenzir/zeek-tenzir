@@ -1,3 +1,0 @@
-[submodule "zeek-to-vast/aux/broker/broker"]
-	path = zeek-to-vast/aux/broker/broker
-	url = https://github.com/zeek/broker
